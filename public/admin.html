@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理画面 — 木村ディベート</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Hiragino Sans', 'Noto Sans JP', sans-serif;
+      background: #0a0a0f;
+      color: #fff;
+      min-height: 100dvh;
+      padding: 24px 16px;
+    }
+    .title {
+      font-size: 20px;
+      font-weight: 900;
+      text-align: center;
+      margin-bottom: 24px;
+      background: linear-gradient(135deg, #ff6b35, #f7931e, #fff176);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 16px;
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .card h2 { font-size: 14px; color: #aaa; margin-bottom: 14px; letter-spacing: 0.06em; }
+
+    label { display: block; font-size: 13px; color: #888; margin-bottom: 6px; }
+    input[type="text"] {
+      width: 100%;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 10px;
+      color: #fff;
+      font-size: 16px;
+      padding: 12px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input[type="text"]:focus { border-color: rgba(255,165,0,0.6); }
+
+    .btn {
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 14px;
+      font-size: 16px;
+      font-weight: 800;
+      cursor: pointer;
+      transition: transform 0.1s, filter 0.1s;
+      margin-top: 10px;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { filter: grayscale(0.6) brightness(0.5); cursor: not-allowed; transform: none; }
+
+    .btn-start { background: linear-gradient(135deg, #00b894, #00cec9); color: #fff; }
+    .btn-end   { background: linear-gradient(135deg, #d63031, #e17055); color: #fff; }
+    .btn-reset { background: rgba(255,255,255,0.08); color: #aaa; border: 1px solid rgba(255,255,255,0.12); }
+
+    .live-scores {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 4px;
+    }
+    .score-card {
+      text-align: center;
+      padding: 14px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+    }
+    .score-card .name { font-size: 13px; color: #aaa; }
+    .score-card .num  { font-size: 36px; font-weight: 900; margin-top: 2px; }
+    #kimuraLive  { color: #ff6b6b; }
+    #challengerLive { color: #4ecdc4; }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 700;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      margin-bottom: 14px;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .dot.waiting  { background: #ffd700; animation: p 1.5s infinite; }
+    .dot.active   { background: #00ff88; animation: p 0.8s infinite; }
+    .dot.ended    { background: #ff4444; }
+    @keyframes p { 0%,100%{opacity:1}50%{opacity:0.4} }
+
+    .user-count { text-align: right; font-size: 13px; color: #555; margin-bottom: 8px; }
+  </style>
+</head>
+<body>
+
+<div class="title">⚙️ 管理画面</div>
+
+<div class="card">
+  <h2>DEBATE STATUS</h2>
+  <div class="status-pill">
+    <span class="dot" id="statusDot"></span>
+    <span id="statusText">接続中...</span>
+  </div>
+  <div class="user-count" id="userCount">👥 0人</div>
+  <div class="live-scores">
+    <div class="score-card">
+      <div class="name">木村</div>
+      <div class="num" id="kimuraLive">0</div>
+    </div>
+    <div class="score-card">
+      <div class="name" id="challengerLiveName">挑戦者</div>
+      <div class="num" id="challengerLive">0</div>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>CONTROLS</h2>
+  <label>挑戦者の名前</label>
+  <input type="text" id="challengerInput" placeholder="例：田中、山田…" value="挑戦者">
+  <button class="btn btn-start" id="startBtn" onclick="startDebate()">▶ ディベート開始</button>
+  <button class="btn btn-end"   id="endBtn"   onclick="endDebate()" disabled>⏹ ディベート終了</button>
+  <button class="btn btn-reset" id="resetBtn" onclick="resetDebate()">🔄 リセット</button>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+
+  function setStatus(mode) {
+    const dot = document.getElementById('statusDot');
+    const text = document.getElementById('statusText');
+    dot.className = 'dot ' + mode;
+    const labels = { waiting: '開始待ち', active: 'ディベート中！', ended: '終了' };
+    text.textContent = labels[mode] || '...';
+
+    const startBtn = document.getElementById('startBtn');
+    const endBtn   = document.getElementById('endBtn');
+    startBtn.disabled = (mode === 'active');
+    endBtn.disabled   = (mode !== 'active');
+  }
+
+  function updateScores(votes, cName) {
+    document.getElementById('kimuraLive').textContent = votes.kimura;
+    document.getElementById('challengerLive').textContent = votes.challenger;
+    if (cName) document.getElementById('challengerLiveName').textContent = cName;
+  }
+
+  function startDebate() {
+    const name = document.getElementById('challengerInput').value.trim() || '挑戦者';
+    socket.emit('admin_start', { challengerName: name });
+  }
+
+  function endDebate() {
+    if (confirm('ディベートを終了しますか？')) {
+      socket.emit('admin_end');
+    }
+  }
+
+  function resetDebate() {
+    if (confirm('リセットしますか？（投票数が0に戻ります）')) {
+      socket.emit('admin_reset');
+    }
+  }
+
+  socket.on('state_sync', (s) => {
+    updateScores(s.votes, s.challengerName);
+    document.getElementById('challengerInput').value = s.challengerName || '挑戦者';
+    if (s.debateEnded) setStatus('ended');
+    else if (s.debateActive) setStatus('active');
+    else setStatus('waiting');
+  });
+
+  socket.on('user_count', (n) => {
+    document.getElementById('userCount').textContent = `👥 ${n}人が接続中`;
+  });
+
+  socket.on('vote_update', ({ votes }) => updateScores(votes));
+
+  socket.on('debate_started', (s) => {
+    setStatus('active');
+    updateScores(s.votes, s.challengerName);
+  });
+
+  socket.on('debate_ended', ({ votes, challengerName }) => {
+    setStatus('ended');
+    updateScores(votes, challengerName);
+  });
+</script>
+</body>
+</html>
