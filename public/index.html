@@ -52,22 +52,21 @@
     .title-kimura {
       display: block;
       font-family: 'Black Han Sans', 'Noto Sans JP', sans-serif;
-      font-size: 38px;
+      font-size: 40px;
       font-weight: 900;
       color: #fff;
-      letter-spacing: 0.18em;
+      letter-spacing: 0.14em;
       text-shadow: 0 3px 0 rgba(200,60,20,0.35), 0 6px 20px rgba(0,0,0,0.18);
       -webkit-text-stroke: 1.5px rgba(255,255,255,0.4);
     }
     .title-debate {
       display: block;
       font-family: 'Noto Sans JP', sans-serif;
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 900;
-      letter-spacing: 0.55em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,0.75);
-      margin-top: 2px;
+      letter-spacing: 0.42em;
+      color: rgba(255,255,255,0.8);
+      margin-top: 3px;
       text-shadow: 0 1px 6px rgba(0,0,0,0.15);
     }
 
@@ -228,7 +227,7 @@
 
 <div class="title">
   <span class="title-kimura">キムラ</span>
-  <span class="title-debate">D E B A T E</span>
+  <span class="title-debate">ディベート</span>
 </div>
 
 <!-- 待機 -->
@@ -307,18 +306,31 @@
     setTimeout(() => ripple.remove(), 600);
   }
 
+  function speakKimura() {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance('キムラッ');
+    u.lang = 'ja-JP';
+    u.rate = 1.6;
+    u.pitch = 1.4;
+    u.volume = 1.0;
+    window.speechSynthesis.speak(u);
+  }
+
   function bindBtn(id, candidate) {
     const btn = document.getElementById(id);
+    const withSound = (candidate === 'kimura');
     btn.addEventListener('touchstart', (e) => {
       e.preventDefault();
       if (btn.disabled) return;
+      if (withSound) speakKimura();
       const t = e.touches[0];
       const rect = btn.getBoundingClientRect();
       vote(candidate, btn, t.clientX - rect.left, t.clientY - rect.top);
     }, { passive: false });
-    // デスクトップ用フォールバック
     btn.addEventListener('click', (e) => {
       if (btn.disabled) return;
+      if (withSound) speakKimura();
       const rect = btn.getBoundingClientRect();
       vote(candidate, btn, e.clientX - rect.left, e.clientY - rect.top);
     });
