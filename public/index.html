@@ -136,6 +136,7 @@
       overflow: hidden;
       user-select: none;
       -webkit-user-select: none;
+      touch-action: manipulation;
     }
     .vote-btn:active { transform: scale(0.88) !important; }
     .vote-btn:disabled {
@@ -241,11 +242,11 @@
 <div class="vote-wrap" id="voteView">
   <div class="vs-label">どっちが優勢？</div>
   <div class="btn-row">
-    <button class="vote-btn kimura" id="kimuraBtn" onclick="vote('kimura', event)">
+    <button class="vote-btn kimura" id="kimuraBtn">
       <span class="btn-emoji">🔥</span>
       <span class="btn-name">木村</span>
     </button>
-    <button class="vote-btn challenger" id="challengerBtn" onclick="vote('challenger', event)">
+    <button class="vote-btn challenger" id="challengerBtn">
       <span class="btn-emoji">⚡</span>
       <span class="btn-name" id="challengerBtnName">挑戦者</span>
     </button>
@@ -296,20 +297,35 @@
     show('resultView');
   }
 
-  function vote(candidate, event) {
+  function vote(candidate, btn, x, y) {
     socket.emit('vote', candidate);
-    const btn = event.currentTarget;
-    const rect = btn.getBoundingClientRect();
-    const touch = event.changedTouches ? event.changedTouches[0] : event;
-    const x = touch.clientX - rect.left;
-    const y = touch.clientY - rect.top;
     const ripple = document.createElement('span');
     ripple.className = 'ripple';
-    const size = Math.max(rect.width, rect.height) * 2;
+    const size = Math.max(btn.offsetWidth, btn.offsetHeight) * 2;
     ripple.style.cssText = `width:${size}px;height:${size}px;left:${x-size/2}px;top:${y-size/2}px`;
     btn.appendChild(ripple);
     setTimeout(() => ripple.remove(), 600);
   }
+
+  function bindBtn(id, candidate) {
+    const btn = document.getElementById(id);
+    btn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (btn.disabled) return;
+      const t = e.touches[0];
+      const rect = btn.getBoundingClientRect();
+      vote(candidate, btn, t.clientX - rect.left, t.clientY - rect.top);
+    }, { passive: false });
+    // デスクトップ用フォールバック
+    btn.addEventListener('click', (e) => {
+      if (btn.disabled) return;
+      const rect = btn.getBoundingClientRect();
+      vote(candidate, btn, e.clientX - rect.left, e.clientY - rect.top);
+    });
+  }
+
+  bindBtn('kimuraBtn', 'kimura');
+  bindBtn('challengerBtn', 'challenger');
 
   function showToast(msg) {
     const t = document.getElementById('toast');
