@@ -306,26 +306,51 @@
     setTimeout(() => ripple.remove(), 600);
   }
 
-  const _snd = new Audio('/kimura.mp3');
-  function speakKimura() {
-    _snd.currentTime = 0;
-    _snd.play().catch(() => {});
+  // AudioContext方式: 連打でも毎回即時再生
+  let _actx = null;
+  const _bufs = {};
+
+  async function _loadBuf(name, url) {
+    const res = await fetch(url);
+    const arr = await res.arrayBuffer();
+    _bufs[name] = await _actx.decodeAudioData(arr);
   }
+
+  function _initAudio() {
+    if (_actx) return;
+    _actx = new (window.AudioContext || window.webkitAudioContext)();
+    _loadBuf('kimura', '/kimura.mp3');
+    _loadBuf('challenger', '/challenger.mp3');
+  }
+
+  function _playBuf(name) {
+    if (!_actx || !_bufs[name]) return;
+    if (_actx.state === 'suspended') _actx.resume();
+    const src = _actx.createBufferSource();
+    src.buffer = _bufs[name];
+    src.connect(_actx.destination);
+    src.start(0);
+  }
+
+  function speakKimura()     { _playBuf('kimura'); }
+  function speakChallenger() { _playBuf('challenger'); }
 
   function bindBtn(id, candidate) {
     const btn = document.getElementById(id);
-    const withSound = (candidate === 'kimura');
+    const speak = candidate === 'kimura' ? speakKimura : speakChallenger;
     btn.addEventListener('touchstart', (e) => {
       e.preventDefault();
       if (btn.disabled) return;
-      if (withSound) speakKimura();
+      _initAudio();
+      speak();
       const t = e.touches[0];
       const rect = btn.getBoundingClientRect();
       vote(candidate, btn, t.clientX - rect.left, t.clientY - rect.top);
     }, { passive: false });
     btn.addEventListener('click', (e) => {
       if (btn.disabled) return;
-      if (withSound) speakKimura();
+      _initAudio();
+      speak();
       const rect = btn.getBoundingClientRect();
       vote(candidate, btn, e.clientX - rect.left, e.clientY - rect.top);
     });
