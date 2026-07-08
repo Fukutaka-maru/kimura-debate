@@ -63,6 +63,7 @@
 
     .btn-start { background: linear-gradient(135deg, #00b894, #00cec9); color: #fff; }
     .btn-end   { background: linear-gradient(135deg, #d63031, #e17055); color: #fff; }
+    .btn-announce { background: linear-gradient(135deg, #6c5ce7, #a29bfe); color: #fff; }
     .btn-reset { background: rgba(255,255,255,0.08); color: #aaa; border: 1px solid rgba(255,255,255,0.12); }
 
     .live-scores {
@@ -97,7 +98,8 @@
     .dot { width: 8px; height: 8px; border-radius: 50%; }
     .dot.waiting  { background: #ffd700; animation: p 1.5s infinite; }
     .dot.active   { background: #00ff88; animation: p 0.8s infinite; }
-    .dot.ended    { background: #ff4444; }
+    .dot.ended    { background: #ffd700; animation: p 1.5s infinite; }
+    .dot.announced { background: #ff4444; }
     @keyframes p { 0%,100%{opacity:1}50%{opacity:0.4} }
 
     .user-count { text-align: right; font-size: 13px; color: #555; margin-bottom: 8px; }
@@ -132,6 +134,7 @@
   <input type="text" id="challengerInput" placeholder="例：田中、山田…" value="挑戦者">
   <button class="btn btn-start" id="startBtn" onclick="startDebate()">▶ ディベート開始</button>
   <button class="btn btn-end"   id="endBtn"   onclick="endDebate()" disabled>⏹ ディベート終了</button>
+  <button class="btn btn-announce" id="announceBtn" onclick="announceResult()" disabled>🏆 結果発表</button>
   <button class="btn btn-reset" id="resetBtn" onclick="resetDebate()">🔄 リセット</button>
 </div>
 
@@ -143,13 +146,20 @@
     const dot = document.getElementById('statusDot');
     const text = document.getElementById('statusText');
     dot.className = 'dot ' + mode;
-    const labels = { waiting: '開始待ち', active: 'ディベート中！', ended: '終了' };
+    const labels = {
+      waiting: '開始待ち',
+      active: 'ディベート中！',
+      ended: '結果発表待ち',
+      announced: '結果発表済み'
+    };
     text.textContent = labels[mode] || '...';
 
     const startBtn = document.getElementById('startBtn');
     const endBtn   = document.getElementById('endBtn');
+    const announceBtn = document.getElementById('announceBtn');
     startBtn.disabled = (mode === 'active');
     endBtn.disabled   = (mode !== 'active');
+    announceBtn.disabled = (mode !== 'ended');
   }
 
   function updateScores(votes, cName) {
@@ -169,6 +179,12 @@
     }
   }
 
+  function announceResult() {
+    if (confirm('結果を発表しますか？')) {
+      socket.emit('admin_announce_result');
+    }
+  }
+
   function resetDebate() {
     if (confirm('リセットしますか？（投票数が0に戻ります）')) {
       socket.emit('admin_reset');
@@ -178,7 +194,8 @@
   socket.on('state_sync', (s) => {
     updateScores(s.votes, s.challengerName);
     document.getElementById('challengerInput').value = s.challengerName || '挑戦者';
-    if (s.debateEnded) setStatus('ended');
+    if (s.debateEnded && s.resultAnnounced) setStatus('announced');
+    else if (s.debateEnded) setStatus('ended');
     else if (s.debateActive) setStatus('active');
     else setStatus('waiting');
   });
@@ -196,6 +213,11 @@
 
   socket.on('debate_ended', ({ votes, challengerName }) => {
     setStatus('ended');
+    updateScores(votes, challengerName);
+  });
+
+  socket.on('result_announced', ({ votes, challengerName }) => {
+    setStatus('announced');
     updateScores(votes, challengerName);
   });
 </script>

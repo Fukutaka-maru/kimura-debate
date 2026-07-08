@@ -201,6 +201,37 @@
       color: rgba(255,255,255,0.7);
       font-weight: 600;
     }
+    .result-counts {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      width: min(360px, 100%);
+      margin-top: 2px;
+    }
+    .result-count {
+      flex: 1;
+      min-width: 0;
+      padding: 12px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.14);
+      border: 1px solid rgba(255,255,255,0.18);
+      color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.16);
+    }
+    .result-count-name {
+      font-size: 12px;
+      font-weight: 800;
+      color: rgba(255,255,255,0.75);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .result-count-num {
+      font-size: 30px;
+      font-weight: 900;
+      line-height: 1.1;
+      margin-top: 2px;
+    }
 
     /* ── トースト ── */
     .toast {
@@ -257,6 +288,16 @@
   <div class="result-crown">🏆</div>
   <div class="result-label">WINNER</div>
   <div class="result-name" id="winnerName">-</div>
+  <div class="result-counts">
+    <div class="result-count">
+      <div class="result-count-name">木村</div>
+      <div class="result-count-num" id="kimuraFinalCount">0</div>
+    </div>
+    <div class="result-count">
+      <div class="result-count-name" id="challengerFinalName">挑戦者</div>
+      <div class="result-count-num" id="challengerFinalCount">0</div>
+    </div>
+  </div>
   <div class="result-sub">ディベート終了！</div>
 </div>
 
@@ -273,16 +314,23 @@
     });
   }
 
+  function showWaiting(message) {
+    document.querySelector('#waitingView .waiting-text').textContent = message;
+    show('waitingView');
+  }
+
   function applyState(s) {
     if (s.challengerName) {
       document.getElementById('challengerBtnName').textContent = s.challengerName;
     }
-    if (s.debateEnded) {
+    if (s.debateEnded && s.resultAnnounced) {
       showResult(s.votes, null, s.challengerName);
+    } else if (s.debateEnded) {
+      showWaiting('結果発表までお待ちください');
     } else if (s.debateActive) {
       show('voteView');
     } else {
-      show('waitingView');
+      showWaiting('まもなく開始します');
     }
   }
 
@@ -293,6 +341,9 @@
       votes.challenger > votes.kimura ? cn : '引き分け'
     );
     document.getElementById('winnerName').textContent = w;
+    document.getElementById('kimuraFinalCount').textContent = votes.kimura;
+    document.getElementById('challengerFinalName').textContent = cn;
+    document.getElementById('challengerFinalCount').textContent = votes.challenger;
     show('resultView');
   }
 
@@ -319,8 +370,7 @@
   function _initAudio() {
     if (_actx) return;
     _actx = new (window.AudioContext || window.webkitAudioContext)();
-    _loadBuf('kimura', '/kimura.mp3');
-    _loadBuf('challenger', '/challenger.mp3');
+    _loadBuf('kimura', '/kimura.mp3?v=2');
   }
 
   function _playBuf(name) {
@@ -332,17 +382,15 @@
     src.start(0);
   }
 
-  function speakKimura()     { _playBuf('kimura'); }
-  function speakChallenger() { _playBuf('kimura'); }
+  function speakKimura() { _playBuf('kimura'); }
 
   function bindBtn(id, candidate) {
     const btn = document.getElementById(id);
-    const speak = candidate === 'kimura' ? speakKimura : speakChallenger;
     btn.addEventListener('touchstart', (e) => {
       e.preventDefault();
       if (btn.disabled) return;
       _initAudio();
-      speak();
+      speakKimura();
       const t = e.touches[0];
       const rect = btn.getBoundingClientRect();
       vote(candidate, btn, t.clientX - rect.left, t.clientY - rect.top);
@@ -350,7 +398,7 @@
     btn.addEventListener('click', (e) => {
       if (btn.disabled) return;
       _initAudio();
-      speak();
+      speakKimura();
       const rect = btn.getBoundingClientRect();
       vote(candidate, btn, e.clientX - rect.left, e.clientY - rect.top);
     });
@@ -369,7 +417,13 @@
   socket.on('state_sync', applyState);
   socket.on('vote_update', () => {});
   socket.on('debate_started', (s) => { applyState(s); showToast('🎤 ディベート開始！'); });
-  socket.on('debate_ended', ({ votes, winner, challengerName }) => {
+  socket.on('debate_ended', ({ challengerName }) => {
+    if (challengerName) {
+      document.getElementById('challengerBtnName').textContent = challengerName;
+    }
+    showWaiting('結果発表までお待ちください');
+  });
+  socket.on('result_announced', ({ votes, winner, challengerName }) => {
     showResult(votes, winner, challengerName);
     showToast(`🏆 ${winner} の勝ち！`);
   });

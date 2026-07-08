@@ -12,10 +12,17 @@ const io = new Server(server, {
 let state = {
   debateActive: false,
   debateEnded: false,
+  resultAnnounced: false,
   challengerName: '挑戦者',
   votes: { kimura: 0, challenger: 0 },
   connectedUsers: 0
 };
+
+function getWinner() {
+  if (state.votes.kimura > state.votes.challenger) return '木村';
+  if (state.votes.challenger > state.votes.kimura) return state.challengerName;
+  return '引き分け';
+}
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -34,6 +41,7 @@ io.on('connection', (socket) => {
   socket.on('admin_start', ({ challengerName }) => {
     state.debateActive = true;
     state.debateEnded = false;
+    state.resultAnnounced = false;
     state.challengerName = challengerName || '挑戦者';
     state.votes = { kimura: 0, challenger: 0 };
     io.emit('debate_started', state);
@@ -42,19 +50,25 @@ io.on('connection', (socket) => {
   socket.on('admin_end', () => {
     state.debateActive = false;
     state.debateEnded = true;
-    const winner =
-      state.votes.kimura > state.votes.challenger
-        ? '木村'
-        : state.votes.challenger > state.votes.kimura
-        ? state.challengerName
-        : '引き分け';
-    io.emit('debate_ended', { votes: state.votes, winner, challengerName: state.challengerName });
+    state.resultAnnounced = false;
+    io.emit('debate_ended', { votes: state.votes, challengerName: state.challengerName });
+  });
+
+  socket.on('admin_announce_result', () => {
+    if (!state.debateEnded) return;
+    state.resultAnnounced = true;
+    io.emit('result_announced', {
+      votes: state.votes,
+      winner: getWinner(),
+      challengerName: state.challengerName
+    });
   });
 
   socket.on('admin_reset', () => {
     state = {
       debateActive: false,
       debateEnded: false,
+      resultAnnounced: false,
       challengerName: '挑戦者',
       votes: { kimura: 0, challenger: 0 },
       connectedUsers: io.engine.clientsCount
