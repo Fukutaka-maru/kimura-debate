@@ -103,6 +103,51 @@
     @keyframes p { 0%,100%{opacity:1}50%{opacity:0.4} }
 
     .user-count { text-align: right; font-size: 13px; color: #555; margin-bottom: 8px; }
+    .result-panel {
+      display: none;
+      margin-top: 14px;
+      padding: 16px;
+      border-radius: 12px;
+      background: rgba(108,92,231,0.14);
+      border: 1px solid rgba(162,155,254,0.26);
+      text-align: center;
+    }
+    .result-panel.show { display: block; }
+    .result-label {
+      font-size: 12px;
+      font-weight: 800;
+      color: #aaa;
+      letter-spacing: 0.08em;
+    }
+    .result-winner {
+      margin-top: 4px;
+      font-size: 28px;
+      font-weight: 900;
+      color: #fff;
+    }
+    .final-scores {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .final-score {
+      padding: 12px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.07);
+    }
+    .final-score .name {
+      font-size: 12px;
+      color: #aaa;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .final-score .num {
+      margin-top: 2px;
+      font-size: 30px;
+      font-weight: 900;
+    }
   </style>
 </head>
 <body>
@@ -126,6 +171,20 @@
       <div class="num" id="challengerLive">0</div>
     </div>
   </div>
+  <div class="result-panel" id="adminResultPanel">
+    <div class="result-label">RESULT</div>
+    <div class="result-winner" id="adminWinnerName">-</div>
+    <div class="final-scores">
+      <div class="final-score">
+        <div class="name">木村</div>
+        <div class="num" id="adminKimuraFinal">0</div>
+      </div>
+      <div class="final-score">
+        <div class="name" id="adminChallengerFinalName">挑戦者</div>
+        <div class="num" id="adminChallengerFinal">0</div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="card">
@@ -134,7 +193,7 @@
   <input type="text" id="challengerInput" placeholder="例：田中、山田…" value="挑戦者">
   <button class="btn btn-start" id="startBtn" onclick="startDebate()">▶ ディベート開始</button>
   <button class="btn btn-end"   id="endBtn"   onclick="endDebate()" disabled>⏹ ディベート終了</button>
-  <button class="btn btn-announce" id="announceBtn" onclick="announceResult()" disabled>🏆 結果発表</button>
+  <button class="btn btn-announce" id="announceBtn" onclick="announceResult()" disabled>🏆 結果を表示</button>
   <button class="btn btn-reset" id="resetBtn" onclick="resetDebate()">🔄 リセット</button>
 </div>
 
@@ -168,8 +227,28 @@
     if (cName) document.getElementById('challengerLiveName').textContent = cName;
   }
 
+  function getWinner(votes, cName) {
+    if (votes.kimura > votes.challenger) return '木村';
+    if (votes.challenger > votes.kimura) return cName || '挑戦者';
+    return '引き分け';
+  }
+
+  function showAdminResult(votes, challengerName, winner) {
+    const cName = challengerName || document.getElementById('challengerLiveName').textContent;
+    document.getElementById('adminWinnerName').textContent = winner || getWinner(votes, cName);
+    document.getElementById('adminKimuraFinal').textContent = votes.kimura;
+    document.getElementById('adminChallengerFinalName').textContent = cName;
+    document.getElementById('adminChallengerFinal').textContent = votes.challenger;
+    document.getElementById('adminResultPanel').classList.add('show');
+  }
+
+  function hideAdminResult() {
+    document.getElementById('adminResultPanel').classList.remove('show');
+  }
+
   function startDebate() {
     const name = document.getElementById('challengerInput').value.trim() || '挑戦者';
+    hideAdminResult();
     socket.emit('admin_start', { challengerName: name });
   }
 
@@ -194,10 +273,19 @@
   socket.on('state_sync', (s) => {
     updateScores(s.votes, s.challengerName);
     document.getElementById('challengerInput').value = s.challengerName || '挑戦者';
-    if (s.debateEnded && s.resultAnnounced) setStatus('announced');
-    else if (s.debateEnded) setStatus('ended');
-    else if (s.debateActive) setStatus('active');
-    else setStatus('waiting');
+    if (s.debateEnded && s.resultAnnounced) {
+      setStatus('announced');
+      showAdminResult(s.votes, s.challengerName);
+    } else if (s.debateEnded) {
+      setStatus('ended');
+      hideAdminResult();
+    } else if (s.debateActive) {
+      setStatus('active');
+      hideAdminResult();
+    } else {
+      setStatus('waiting');
+      hideAdminResult();
+    }
   });
 
   socket.on('user_count', (n) => {
@@ -209,16 +297,19 @@
   socket.on('debate_started', (s) => {
     setStatus('active');
     updateScores(s.votes, s.challengerName);
+    hideAdminResult();
   });
 
   socket.on('debate_ended', ({ votes, challengerName }) => {
     setStatus('ended');
     updateScores(votes, challengerName);
+    hideAdminResult();
   });
 
-  socket.on('result_announced', ({ votes, challengerName }) => {
+  socket.on('result_announced', ({ votes, winner, challengerName }) => {
     setStatus('announced');
     updateScores(votes, challengerName);
+    showAdminResult(votes, challengerName, winner);
   });
 </script>
 </body>
