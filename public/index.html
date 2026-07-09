@@ -20,6 +20,11 @@
       overflow: hidden;
       position: relative;
     }
+    body.sukashi-mode {
+      background:
+        radial-gradient(circle at 50% 18%, rgba(255,237,158,0.2), transparent 30%),
+        linear-gradient(180deg, #14060a 0%, #2a080e 48%, #050505 100%);
+    }
 
     /* 背景の装飾サークル */
     body::before {
@@ -48,6 +53,7 @@
       text-align: center;
       line-height: 1;
       pointer-events: none;
+      z-index: 5;
     }
     .title-kimura {
       display: block;
@@ -69,6 +75,37 @@
       margin-top: 4px;
       text-shadow: 0 1px 6px rgba(0,0,0,0.15);
     }
+
+    .mode-tabs {
+      position: fixed;
+      top: 12px;
+      right: 12px;
+      z-index: 20;
+      display: flex;
+      gap: 6px;
+      padding: 4px;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.18);
+      border: 1px solid rgba(255,255,255,0.18);
+      backdrop-filter: blur(10px);
+    }
+    .mode-tab {
+      border: none;
+      border-radius: 999px;
+      padding: 7px 10px;
+      background: transparent;
+      color: rgba(255,255,255,0.72);
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .mode-tab.active {
+      background: rgba(255,255,255,0.92);
+      color: #5b1600;
+    }
+    body.sukashi-mode .mode-tab.active { color: #35060a; }
 
     /* ── 待機 ── */
     .waiting {
@@ -233,6 +270,126 @@
       margin-top: 2px;
     }
 
+    /* ── スカシコール ── */
+    .sukashi-wrap {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      min-height: 100dvh;
+      padding: 116px 22px 28px;
+      color: #fff;
+      text-align: center;
+      position: relative;
+      z-index: 1;
+    }
+    .sukashi-stage {
+      width: min(420px, 100%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+    }
+    .sukashi-kicker {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.28em;
+      color: rgba(255,231,160,0.82);
+    }
+    .sukashi-card {
+      width: min(260px, 72vw);
+      aspect-ratio: 3 / 4;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background:
+        linear-gradient(160deg, rgba(255,255,255,0.94), rgba(255,236,188,0.96) 48%, rgba(211,31,43,0.98) 49%, rgba(119,4,14,0.98));
+      box-shadow:
+        0 18px 54px rgba(0,0,0,0.42),
+        0 0 0 1px rgba(255,236,188,0.32) inset;
+      display: grid;
+      place-items: center;
+      position: relative;
+      overflow: hidden;
+      transform: rotate(-1deg);
+      transition: transform 0.12s ease, filter 0.12s ease;
+      touch-action: manipulation;
+    }
+    .sukashi-card::before {
+      content: '';
+      position: absolute;
+      inset: 12px;
+      border: 2px solid rgba(65,9,10,0.18);
+      border-radius: 4px;
+    }
+    .sukashi-card::after {
+      content: '';
+      position: absolute;
+      left: -28%;
+      top: 0;
+      width: 34%;
+      height: 100%;
+      background: rgba(255,255,255,0.22);
+      transform: skewX(-18deg);
+      transition: left 0.28s ease;
+    }
+    .sukashi-card:active {
+      transform: rotate(0deg) scale(0.94);
+      filter: brightness(1.08);
+    }
+    .sukashi-card:active::after { left: 108%; }
+    .sukashi-mark {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      color: #340307;
+      text-shadow: 0 2px 0 rgba(255,255,255,0.42);
+    }
+    .sukashi-main {
+      font-size: clamp(46px, 15vw, 74px);
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      writing-mode: vertical-rl;
+      line-height: 0.94;
+    }
+    .sukashi-sub {
+      font-size: 13px;
+      font-weight: 900;
+      letter-spacing: 0.24em;
+      color: rgba(52,3,7,0.68);
+    }
+    .sukashi-count {
+      font-size: 13px;
+      font-weight: 900;
+      color: rgba(255,255,255,0.72);
+      letter-spacing: 0.08em;
+    }
+    .sukashi-count strong {
+      display: inline-block;
+      min-width: 2ch;
+      font-size: 30px;
+      color: #ffe06e;
+      text-shadow: 0 2px 12px rgba(0,0,0,0.35);
+      vertical-align: -0.12em;
+    }
+    .sukashi-flash {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background: rgba(255,236,150,0.5);
+      opacity: 0;
+      z-index: 10;
+    }
+    .sukashi-flash.show { animation: sukashiFlash 0.32s ease-out; }
+    @keyframes sukashiFlash {
+      0% { opacity: 0; }
+      22% { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
     /* ── トースト ── */
     .toast {
       position: fixed;
@@ -256,9 +413,14 @@
 </head>
 <body>
 
+<div class="mode-tabs" aria-label="企画切り替え">
+  <button class="mode-tab active" id="debateTab" type="button">ディベート</button>
+  <button class="mode-tab" id="sukashiTab" type="button">スカシ</button>
+</div>
+
 <div class="title">
-  <span class="title-kimura">キムラ</span>
-  <span class="title-debate">ディベート</span>
+  <span class="title-kimura" id="mainTitle">キムラ</span>
+  <span class="title-debate" id="subTitle">ディベート</span>
 </div>
 
 <!-- 待機 -->
@@ -301,17 +463,50 @@
   <div class="result-sub">ディベート終了！</div>
 </div>
 
+<!-- スカシコール -->
+<div class="sukashi-wrap" id="sukashiView">
+  <div class="sukashi-stage">
+    <div class="sukashi-kicker">SUKASHI CALL</div>
+    <button class="sukashi-card" id="sukashiBtn" type="button" aria-label="スカシを鳴らす">
+      <span class="sukashi-mark">
+        <span class="sukashi-main">スカシ</span>
+        <span class="sukashi-sub">CALL</span>
+      </span>
+    </button>
+    <div class="sukashi-count">本日のスカシ <strong id="sukashiCount">0</strong> 回</div>
+  </div>
+</div>
+
+<div class="sukashi-flash" id="sukashiFlash"></div>
 <div class="toast" id="toast"></div>
 
 <script src="/socket.io/socket.io.js"></script>
 <script>
   const socket = io();
+  let appMode = 'debate';
+  let latestState = null;
 
   function show(id) {
-    ['waitingView','voteView','resultView'].forEach(v => {
+    ['waitingView','voteView','resultView','sukashiView'].forEach(v => {
       const el = document.getElementById(v);
       el.style.display = (v === id) ? (v === 'voteView' ? 'flex' : v === 'resultView' ? 'flex' : 'flex') : 'none';
     });
+  }
+
+  function setMode(mode) {
+    appMode = mode;
+    document.body.classList.toggle('sukashi-mode', mode === 'sukashi');
+    document.getElementById('debateTab').classList.toggle('active', mode === 'debate');
+    document.getElementById('sukashiTab').classList.toggle('active', mode === 'sukashi');
+    document.getElementById('mainTitle').textContent = mode === 'sukashi' ? 'スカシ' : 'キムラ';
+    document.getElementById('subTitle').textContent = mode === 'sukashi' ? 'コール' : 'ディベート';
+    if (mode === 'sukashi') {
+      show('sukashiView');
+    } else if (latestState) {
+      renderDebateState(latestState);
+    } else {
+      showWaiting('まもなく開始します');
+    }
   }
 
   function showWaiting(message) {
@@ -319,7 +514,7 @@
     show('waitingView');
   }
 
-  function applyState(s) {
+  function renderDebateState(s) {
     if (s.challengerName) {
       document.getElementById('challengerBtnName').textContent = s.challengerName;
     }
@@ -332,6 +527,12 @@
     } else {
       showWaiting('まもなく開始します');
     }
+  }
+
+  function applyState(s) {
+    latestState = s;
+    if (appMode !== 'debate') return;
+    renderDebateState(s);
   }
 
   function showResult(votes, winner, cName) {
@@ -371,6 +572,7 @@
     if (_actx) return;
     _actx = new (window.AudioContext || window.webkitAudioContext)();
     _loadBuf('kimura', '/kimura.mp3?v=2');
+    _loadBuf('sukashi', '/sukashi.mp3?v=1');
   }
 
   function _playBuf(name) {
@@ -382,7 +584,21 @@
     src.start(0);
   }
 
-  function speakKimura() { _playBuf('kimura'); }
+  function _playFile(url) {
+    const audio = new Audio(url);
+    audio.currentTime = 0;
+    audio.play().catch(() => {});
+  }
+
+  function speakKimura() {
+    if (_bufs.kimura) _playBuf('kimura');
+    else _playFile('/kimura.mp3?v=2');
+  }
+
+  function speakSukashi() {
+    if (_bufs.sukashi) _playBuf('sukashi');
+    else _playFile('/sukashi.mp3?v=1');
+  }
 
   function bindBtn(id, candidate) {
     const btn = document.getElementById(id);
@@ -407,6 +623,26 @@
   bindBtn('kimuraBtn', 'kimura');
   bindBtn('challengerBtn', 'challenger');
 
+  let sukashiCount = Number(localStorage.getItem('sukashiCount') || 0);
+  document.getElementById('sukashiCount').textContent = sukashiCount;
+
+  function hitSukashi() {
+    _initAudio();
+    speakSukashi();
+    sukashiCount++;
+    localStorage.setItem('sukashiCount', String(sukashiCount));
+    document.getElementById('sukashiCount').textContent = sukashiCount;
+    const flash = document.getElementById('sukashiFlash');
+    flash.classList.remove('show');
+    void flash.offsetWidth;
+    flash.classList.add('show');
+    showToast('スカシッ');
+  }
+
+  document.getElementById('debateTab').addEventListener('click', () => setMode('debate'));
+  document.getElementById('sukashiTab').addEventListener('click', () => setMode('sukashi'));
+  document.getElementById('sukashiBtn').addEventListener('click', hitSukashi);
+
   function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -415,17 +651,40 @@
   }
 
   socket.on('state_sync', applyState);
-  socket.on('vote_update', () => {});
-  socket.on('debate_started', (s) => { applyState(s); showToast('🎤 ディベート開始！'); });
-  socket.on('debate_ended', ({ challengerName }) => {
+  socket.on('vote_update', ({ votes }) => {
+    if (latestState) latestState.votes = votes;
+  });
+  socket.on('debate_started', (s) => {
+    applyState(s);
+    if (appMode === 'debate') showToast('🎤 ディベート開始！');
+  });
+  socket.on('debate_ended', ({ votes, challengerName }) => {
+    latestState = {
+      ...(latestState || {}),
+      debateActive: false,
+      debateEnded: true,
+      resultAnnounced: false,
+      votes,
+      challengerName
+    };
     if (challengerName) {
       document.getElementById('challengerBtnName').textContent = challengerName;
     }
-    showWaiting('結果発表までお待ちください');
+    if (appMode === 'debate') showWaiting('結果発表までお待ちください');
   });
   socket.on('result_announced', ({ votes, winner, challengerName }) => {
-    showResult(votes, winner, challengerName);
-    showToast(`🏆 ${winner} の勝ち！`);
+    latestState = {
+      ...(latestState || {}),
+      debateActive: false,
+      debateEnded: true,
+      resultAnnounced: true,
+      votes,
+      challengerName
+    };
+    if (appMode === 'debate') {
+      showResult(votes, winner, challengerName);
+      showToast(`🏆 ${winner} の勝ち！`);
+    }
   });
 </script>
 </body>
